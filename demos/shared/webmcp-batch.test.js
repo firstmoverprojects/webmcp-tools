@@ -5,7 +5,34 @@
 
 import test from 'node:test';
 import assert from 'node:assert';
-import { resolveReferences, getNestedProperty, executeDeclarativeBatch, getSystemInstructions, getSystemInstruction } from './webmcp-batch.js';
+import { resolveReferences, getNestedProperty, executeDeclarativeBatch, getSystemInstruction, registerExecuteBatchTool } from './webmcp-batch.js';
+
+test('execute_batch passes an input object (not a JSON string) to executeTool()', async (t) => {
+  const executeCalls = [];
+  let registered;
+  const registeredTools = [{ name: 'createPizza', description: 'Create a pizza' }];
+  globalThis.document = {
+    modelContext: {
+      registerTool: async (tool) => { registered = tool; },
+      getTools: async () => registeredTools,
+      executeTool: async (tool, inputObject) => {
+        executeCalls.push({ name: tool.name, inputObject });
+        return { pizzaId: 'p1' };
+      },
+    },
+  };
+  t.after(() => { delete globalThis.document; });
+
+  await registerExecuteBatchTool();
+  assert.strictEqual(registered.name, 'execute_batch');
+
+  const result = await registered.execute({
+    steps: [{ id: 's1', tool: 'createPizza', args: { style: 'BBQ' } }],
+  });
+
+  assert.strictEqual(result.success, true);
+  assert.deepEqual(executeCalls, [{ name: 'createPizza', inputObject: { style: 'BBQ' } }]);
+});
 
 test('getNestedProperty helper', () => {
   const obj = {
@@ -127,10 +154,10 @@ test('executeDeclarativeBatch failure halts execution', async () => {
     }
   ];
 
-  let step3Called = false;
-  const mockExecuteTool = async (tool, args) => {
+  let succeedCalls = 0;
+  const mockExecuteTool = async (tool) => {
     if (tool === 'succeed') {
-      if (tool === 'step3') step3Called = true;
+      succeedCalls++;
       return 'ok';
     }
     if (tool === 'fail') {
@@ -144,10 +171,10 @@ test('executeDeclarativeBatch failure halts execution', async () => {
   assert.strictEqual(outputs[0].success, true);
   assert.strictEqual(outputs[1].success, false);
   assert.strictEqual(outputs[1].error, 'Forced failure');
-  assert.strictEqual(step3Called, false);
+  assert.strictEqual(succeedCalls, 1, 'step3 must not run after step2 fails');
 });
 
-test('getSystemInstructions formats tool schemas and filters execute_batch', () => {
+test('getSystemInstruction formats tool schemas and filters execute_batch', () => {
   const tools = [
     {
       name: 'execute_batch',
@@ -164,9 +191,8 @@ test('getSystemInstructions formats tool schemas and filters execute_batch', () 
     }
   ];
 
-  const instructions = getSystemInstructions(tools);
+  const instructions = getSystemInstruction(tools);
   assert(Array.isArray(instructions));
-  assert.strictEqual(getSystemInstruction, getSystemInstructions);
 
   const jsonBlockIndex = instructions.findIndex(line => line === '```json');
   assert(jsonBlockIndex !== -1);
