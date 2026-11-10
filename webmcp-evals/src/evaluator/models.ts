@@ -9,6 +9,16 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { Config, WebmcpConfig } from "../types/config.js";
 import { makeSignaturePreservingFetch } from "./googleThoughtSignatures.js";
 
+/**
+ * OLLAMA_HOST conventionally holds the bare server address (as used by the
+ * Ollama CLI and the `ollama` backend), while the OpenAI-compatible API lives
+ * under `/v1`.
+ */
+export function ollamaOpenAIBaseURL(host = "http://127.0.0.1:11434"): string {
+  const trimmed = host.replace(/\/+$/, "");
+  return trimmed.endsWith("/v1") ? trimmed : `${trimmed}/v1`;
+}
+
 export function getModel(config: Config | WebmcpConfig) {
   const modelId = config.model || "google:gemini-3-flash-preview";
 
@@ -48,7 +58,7 @@ export function getModel(config: Config | WebmcpConfig) {
 
   if (config.provider === "ollama" || modelId.startsWith("ollama:")) {
     const ollama = createOpenAI({
-      baseURL: process.env.OLLAMA_HOST || "http://127.0.0.1:11434/v1",
+      baseURL: ollamaOpenAIBaseURL(process.env.OLLAMA_HOST || undefined),
       apiKey: "ollama", // Required by standard but ignored by Ollama locally
     });
     // Ollama's OpenAI compatibility surface implements /v1/chat/completions,
