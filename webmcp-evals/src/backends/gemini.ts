@@ -89,10 +89,10 @@ export class GeminiBackend implements Backend {
     const response = await this.googleGenAI.models.generateContent(request);
 
     const toolCalls: Array<ToolCall> = (response.functionCalls || [])
-      .filter((f) => f.name && f.args)
+      .filter((f) => f.name)
       .map((f) => {
         return {
-          args: f.args as Record<string, unknown>,
+          args: (f.args ?? {}) as Record<string, unknown>,
           functionName: f.name!,
         };
       });

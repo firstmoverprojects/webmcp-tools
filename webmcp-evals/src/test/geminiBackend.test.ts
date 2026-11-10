@@ -25,9 +25,9 @@ describe("GeminiBackend", () => {
     assert.strictEqual(backend.describe(), "Gemini Backend using model: gemini-3.5-flash");
   });
 
-  it("should throw not implemented for executeInBrowserEval", () => {
+  it("should throw not implemented for executeInBrowserEval", async () => {
     const backend = new GeminiBackend("dummy-api-key", "gemini-3.5-flash", "System prompt");
-    assert.rejects(
+    await assert.rejects(
       async () => {
         await backend.executeInBrowserEval({} as any, {} as any);
       },
@@ -117,6 +117,24 @@ describe("GeminiBackend", () => {
     const registry = new LocalToolRegistry(sampleTools, resolver);
     const result = await backend.executeLocalEvals(testEval, registry);
     assert.deepStrictEqual(result, { toolCalls: [], text: "No tool calls generated." });
+  });
+
+  it("keeps function calls that have no arguments", async () => {
+    const backend = new GeminiBackend("dummy-api-key", "gemini-3.5-flash", "System prompt");
+
+    (backend as any).googleGenAI = {
+      models: {
+        generateContent: async () => ({ functionCalls: [{ name: "get_cart" }], candidates: [] }),
+      },
+    };
+
+    const testEval: Eval = {
+      messages: [{ role: "user", type: "message", content: "What's in my cart?" }],
+      expectedCall: null,
+    };
+    const registry = new LocalToolRegistry(sampleTools, new MockResolver(null));
+    const result = await backend.executeLocalEvals(testEval, registry);
+    assert.deepStrictEqual(result.toolCalls, [{ functionName: "get_cart", args: {} }]);
   });
 
   it("should map multi-turn messages correctly during API execution", async () => {
