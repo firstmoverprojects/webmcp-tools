@@ -130,6 +130,21 @@ export function getProgressBar(ratio: number, size = 10): string {
   return `${filledPart}${emptyPart}`;
 }
 
+/**
+ * Only the Vercel AI SDK backend implements multi-step browser evals. The
+ * Gemini and Ollama backends are single-turn and local-only; their models are
+ * reachable from `browser` through the Vercel backend's provider prefixes.
+ */
+export function assertBrowserBackend(backend: string | undefined): void {
+  if (backend && backend !== "vercel") {
+    throw new Error(
+      `The "${backend}" backend only supports the "local" command. ` +
+        `Use the default "vercel" backend for browser evals and pick the provider with a model ` +
+        `prefix, e.g. "-m google:gemini-3.5-flash" or "-m ollama:qwen2.5:14b".`,
+    );
+  }
+}
+
 export async function runWebCommand(options: CommandOptions, command?: Command): Promise<void> {
   const opts: CommandOptions = command?.optsWithGlobals ? command.optsWithGlobals() : options;
 
@@ -142,6 +157,8 @@ export async function runWebCommand(options: CommandOptions, command?: Command):
   });
 
   try {
+    assertBrowserBackend(opts.backend);
+
     const config: WebmcpConfig = {
       url,
       evalsFile,
