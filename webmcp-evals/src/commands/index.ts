@@ -118,6 +118,11 @@ export async function runLocalCommand(options: CommandOptions, command?: Command
   } else {
     await outputReports(config, finalResults, finalReporters, opts.outputDir, opts.open);
   }
+  setExitCodeFromResults(finalResults);
+}
+
+function setExitCodeFromResults(results: { failCount: number; errorCount: number }): void {
+  if (results.failCount > 0 || results.errorCount > 0) process.exitCode = 1;
 }
 
 export function getProgressBar(ratio: number, size = 10): string {
@@ -238,6 +243,7 @@ export async function runWebCommand(options: CommandOptions, command?: Command):
     } else {
       await outputReports(config, finalResults, finalReporters, opts.outputDir, opts.open, true);
     }
+    setExitCodeFromResults(finalResults);
   } catch (error: any) {
     console.error(`\n${chalk.red.bold("❌ Error:")} ${error.message || error}\n`);
     process.exit(1);

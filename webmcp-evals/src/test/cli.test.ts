@@ -64,6 +64,43 @@ describe("webmcp-evals CLI", () => {
     assert.match(out, /only supports the "local" command/);
   });
 
+  it("exits non-zero when local evals error", () => {
+    const dir = mkdtempSync(join(tmpdir(), "webmcp-evals-cli-"));
+    const toolsPath = join(dir, "schema.json");
+    const evalsPath = join(dir, "evals.json");
+    writeFileSync(
+      toolsPath,
+      JSON.stringify({
+        tools: [{ name: "ping", description: "Ping", inputSchema: { type: "object" } }],
+      }),
+    );
+    writeFileSync(
+      evalsPath,
+      JSON.stringify([
+        {
+          name: "ping",
+          messages: [{ role: "user", type: "message", content: "ping" }],
+          expectedCall: [{ functionName: "ping" }],
+        },
+      ]),
+    );
+    const result = spawnSync(
+      process.execPath,
+      [bin, "--reporter", "json", "-o", dir, "local", "-t", toolsPath, "-e", evalsPath],
+      {
+        encoding: "utf-8",
+        cwd: dir,
+        timeout: 20_000,
+        env: {
+          PATH: process.env.PATH,
+          FORCE_COLOR: "0",
+          GOOGLE_GENERATIVE_AI_BASE_URL: "http://127.0.0.1:9",
+        },
+      },
+    );
+    assert.strictEqual(result.status, 1, `${result.stdout}${result.stderr}`);
+  });
+
   it("reports a smoke eval file that has no runnable steps without launching Chrome", () => {
     const dir = mkdtempSync(join(tmpdir(), "webmcp-evals-cli-"));
     const evalsPath = join(dir, "evals.json");
