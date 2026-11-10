@@ -4,8 +4,8 @@
  */
 
 import * as assert from "node:assert";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { SUPPORTED_OPERATORS, matchesArgument } from "../matcher.js";
@@ -129,6 +129,23 @@ describe("bundled examples", () => {
         }
       });
       assert.deepStrictEqual(errors, []);
+
+      const schemaPath = join(dirname(file), "schema.json");
+      if (existsSync(schemaPath)) {
+        const toolNames = new Set(
+          JSON.parse(readFileSync(schemaPath, "utf-8")).tools.map((t: { name: string }) => t.name),
+        );
+        const calls: FunctionCall[] = [];
+        tests.forEach((test) => collectCalls(test.expectedCall || [], calls));
+        const unknown = [...new Set(calls.map((c) => c.functionName))].filter(
+          (n) => !toolNames.has(n),
+        );
+        assert.deepStrictEqual(
+          unknown,
+          [],
+          "expected calls must name tools defined in schema.json",
+        );
+      }
     });
   }
 });
