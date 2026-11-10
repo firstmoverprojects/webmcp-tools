@@ -488,6 +488,54 @@ describe("optional tool calls", () => {
     for (const r of results) assert.strictEqual(r.outcome, "pass");
   });
 
+  it("does not let a skipped optional in an unordered group consume the next expected call", () => {
+    const expected: ExpectedCallNode[] = [
+      {
+        unordered: [
+          { functionName: "add_topping" },
+          { functionName: "get_summary", optional: true },
+        ],
+      },
+      { functionName: "checkout" },
+    ];
+    const actual: ToolCall[] = [
+      { functionName: "add_topping", args: {} },
+      { functionName: "checkout", args: {} },
+    ];
+    const results = evaluateExecutionTrajectory(expected, actual);
+    assert.deepStrictEqual(
+      results.map((r) => [(r.expected as any)?.functionName, r.actual?.functionName, r.outcome]),
+      [
+        ["add_topping", "add_topping", "pass"],
+        ["checkout", "checkout", "pass"],
+      ],
+    );
+  });
+
+  it("attributes a wrong call inside an unordered group with optionals to the required node", () => {
+    const expected: ExpectedCallNode[] = [
+      {
+        unordered: [
+          { functionName: "add_topping" },
+          { functionName: "get_summary", optional: true },
+        ],
+      },
+      { functionName: "checkout" },
+    ];
+    const actual: ToolCall[] = [
+      { functionName: "remove_topping", args: {} },
+      { functionName: "checkout", args: {} },
+    ];
+    const results = evaluateExecutionTrajectory(expected, actual);
+    assert.deepStrictEqual(
+      results.map((r) => [(r.expected as any)?.functionName, r.actual?.functionName, r.outcome]),
+      [
+        ["add_topping", "remove_topping", "fail"],
+        ["checkout", "checkout", "pass"],
+      ],
+    );
+  });
+
   it("skips an unmatched optional inside a nested unordered group", () => {
     // Trigger the matchNestedUnorderedGroup path with a group as a
     // sibling. Actual only has search + update_cart; the optional
