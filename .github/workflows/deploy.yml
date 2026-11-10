@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   build-and-deploy:
+    # GitHub Pages must be enabled for the repository; it is only set up on upstream.
+    if: github.repository == 'GoogleChromeLabs/webmcp-tools'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
