@@ -145,7 +145,7 @@ export function assertBrowserBackend(backend: string | undefined): void {
     throw new Error(
       `The "${backend}" backend only supports the "local" command. ` +
         `Use the default "vercel" backend for browser evals and pick the provider with a model ` +
-        `prefix, e.g. "-m google:gemini-3.5-flash" or "-m ollama:qwen2.5:14b".`,
+        `prefix, e.g. "-m google:gemini-3.8-flash" or "-m ollama:qwen2.5:14b".`,
     );
   }
 }
