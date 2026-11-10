@@ -40,10 +40,21 @@ if (isImperative) {
     element.removeAttribute("toolparamdescription");
   });
 
+  // Removing the attributes withdraws the declarative tool asynchronously, and
+  // registering the same name before that lands throws. The polyfill fires no
+  // toolchange event for this, so poll instead of waiting for one.
+  for (let i = 0; i < 40; i++) {
+    const tools = await document.modelContext.getTools();
+    if (!tools.some((t) => t.name === tool.name)) break;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
   document.modelContext.registerTool({
     name: tool.name,
     description: tool.description,
-    inputSchema: JSON.parse(tool.inputSchema),
+    // Chrome 155+ returns inputSchema as an object; earlier builds returned a JSON string.
+    inputSchema:
+      typeof tool.inputSchema === "string" ? JSON.parse(tool.inputSchema) : tool.inputSchema,
     execute: async (args = {}) => {
       for (const [key, value] of Object.entries(args)) {
         form.elements[key].value = value;
