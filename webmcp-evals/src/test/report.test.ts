@@ -5,7 +5,7 @@
 
 import { describe, it } from "node:test";
 import * as assert from "node:assert";
-import { renderReport } from "../report/report.js";
+import { renderReport, renderWebmcpReport } from "../report/report.js";
 import { TestResults, TestResult } from "../types/evals.js";
 import { Config } from "../types/config.js";
 
@@ -222,5 +222,20 @@ describe("Report Grouping & Rendering", () => {
     assert.match(html, /&quot;query&quot;: &quot;&lt;script&gt;alert\(1\)&lt;\/script&gt;&quot;/);
     assert.match(html, /Uncaught exception/);
     assert.strictEqual(html.match(/Failed to render/g)?.length, 1);
+  });
+
+  it("escapes configuration values in the browser report header", () => {
+    const html = renderWebmcpReport(
+      {
+        url: "https://example.test/?q=<img src=x onerror=alert(1)>",
+        evalsFile: "evals.json",
+        backend: "vercel",
+        model: "<b>model</b>",
+      },
+      { results: [], testCount: 0, passCount: 0, failCount: 0, errorCount: 0 },
+    );
+    assert.doesNotMatch(html, /<img src=x/);
+    assert.doesNotMatch(html, /<b>model<\/b>/);
+    assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
   });
 });

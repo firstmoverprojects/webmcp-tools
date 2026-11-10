@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenAI } from 'https://esm.sh/@google/genai';
+import DOMPurify from 'https://esm.sh/dompurify';
 
 const setupContainer = document.getElementById('setup-container');
 const chatContainer = document.getElementById('chat-container');
@@ -188,12 +189,21 @@ async function handleUserSubmit() {
       } else {
         const toolResponses = [];
         for (const { name, args } of functionCalls) {
-          const inputArgs = JSON.stringify(args);
           try {
             appendMessage('System', `⚙️ Executing tool: ${name}...`, 'tool-indicator');
             const tools = await getTools();
             const tool = tools.find((t) => t.name == name);
-            const result = await document.modelContext.executeTool(tool, inputArgs);
+            let result;
+            try {
+              result = await document.modelContext.executeTool(tool, args);
+            } catch (e) {
+              // TODO: Remove when executeTool doesn't accept JSON stringified inputArgs in Chrome Stable.
+              if (e.message.startsWith('Failed to parse input')) {
+                result = await document.modelContext.executeTool(tool, JSON.stringify(args));
+              } else {
+                throw e;
+              }
+            }
 
             if (codeModeCheckbox.checked && name === 'execute_batch' && result && Array.isArray(result.outputs)) {
               for (const out of result.outputs) {
@@ -245,7 +255,7 @@ async function handleUserSubmit() {
 function appendMessage(sender, text, className) {
   const msgDiv = document.createElement('div');
   msgDiv.className = `message ${className}`;
-  msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+  msgDiv.innerHTML = DOMPurify.sanitize(text.replace(/\n/g, '<br>'));
   chatWindow.appendChild(msgDiv);
   chatWindow.scrollTop = chatWindow.scrollHeight;
 }

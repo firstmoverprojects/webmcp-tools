@@ -21,14 +21,32 @@ export function matchesArgument(expected: any, actual: any): boolean {
   return matchesRecursive(expected, actual);
 }
 
+export const SUPPORTED_OPERATORS = [
+  "$eq",
+  "$pattern",
+  "$contains",
+  "$gt",
+  "$gte",
+  "$lt",
+  "$lte",
+  "$type",
+  "$any",
+] as const;
+
+const SUPPORTED_TYPES = new Set(["string", "number", "boolean", "array", "object", "null"]);
+
 /**
  * Evaluates a constraint object against an actual value.
  * Supports operators:
+ * - `$eq`: Exact (deep, subset-for-objects) match, same as a literal value
  * - `$pattern`: Regex match (string)
  * - `$contains`: Substring match (string)
  * - `$gt`, `$gte`, `$lt`, `$lte`: Numeric comparisons
  * - `$type`: Type assertion ("string", "number", "boolean", "array", "object", "null")
  * - `$any`: Presence check (always true if key exists)
+ *
+ * Unknown operators throw instead of being ignored, so a typo such as
+ * `$lessThan` cannot turn an assertion into a silent pass.
  *
  * @param constraint The constraint object (e.g., { "$gt": 10 }).
  * @param actual The value to test.
@@ -36,7 +54,14 @@ export function matchesArgument(expected: any, actual: any): boolean {
  */
 function matchesConstraint(constraint: any, actual: any): boolean {
   for (const key of Object.keys(constraint)) {
-    if (key === "$pattern") {
+    if (!(SUPPORTED_OPERATORS as readonly string[]).includes(key)) {
+      throw new SyntaxError(
+        `Unknown matcher operator "${key}". Supported operators: ${SUPPORTED_OPERATORS.join(", ")}.`,
+      );
+    }
+    if (key === "$eq") {
+      if (!matchesRecursive(constraint[key], actual)) return false;
+    } else if (key === "$pattern") {
       if (typeof actual !== "string") {
         return false;
       }
@@ -62,6 +87,11 @@ function matchesConstraint(constraint: any, actual: any): boolean {
       if (key === "$lte" && !(actual <= val)) return false;
     } else if (key === "$type") {
       const type = constraint[key];
+      if (!SUPPORTED_TYPES.has(type)) {
+        throw new SyntaxError(
+          `Unknown $type ${JSON.stringify(type)}. Supported types: ${[...SUPPORTED_TYPES].join(", ")}.`,
+        );
+      }
       if (type === "array") {
         if (!Array.isArray(actual)) return false;
       } else if (type === "null") {
@@ -71,10 +101,8 @@ function matchesConstraint(constraint: any, actual: any): boolean {
       } else {
         if (typeof actual !== type) return false;
       }
-    } else if (key === "$any") {
-      // Always matches if present
     }
-    // Future constraints will go here
+    // `$any` always matches if the key is present.
   }
   return true;
 }

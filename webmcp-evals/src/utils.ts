@@ -94,11 +94,34 @@ function matchSimpleUnorderedGroup(
   executions: ToolCall[],
   startIndex: number,
 ): MatchResult {
+  // The group may consume anywhere between its required count and its total
+  // count of executions. Optional calls the model skipped must not claim the
+  // executions that belong to whatever is expected after the group, so pick
+  // the window with the most passes, preferring the smaller window on ties.
+  const requiredCount = nodes.filter((node) => (node as FunctionCall).optional !== true).length;
+  const maxWindow = Math.max(0, Math.min(nodes.length, executions.length - startIndex));
+  const minWindow = Math.min(requiredCount, maxWindow);
+
+  let best: MatchResult | undefined;
+  let bestPasses = -1;
+  for (let size = minWindow; size <= maxWindow; size++) {
+    const candidate = matchSimpleUnorderedWindow(nodes, executions, startIndex, size);
+    const passes = candidate.mappedResults.filter((r) => r.outcome === "pass").length;
+    if (passes > bestPasses) {
+      best = candidate;
+      bestPasses = passes;
+    }
+  }
+  return best!;
+}
+
+function matchSimpleUnorderedWindow(
+  nodes: ExpectedCallNode[],
+  executions: ToolCall[],
+  startIndex: number,
+  executionPoolSize: number,
+): MatchResult {
   const expectedNodesCount = nodes.length;
-  const executionPoolSize = Math.max(
-    0,
-    Math.min(expectedNodesCount, executions.length - startIndex),
-  );
 
   // Create bipartite graph of expected indices mapping to all potentially matching actual executions
   const adjacencyList: number[][] = [];
@@ -202,7 +225,7 @@ function matchSimpleUnorderedGroup(
 
   return {
     matches: allMatched,
-    consumed: expectedNodesCount,
+    consumed: executionPoolSize,
     mappedResults,
   };
 }

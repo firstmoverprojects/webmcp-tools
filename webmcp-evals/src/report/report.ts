@@ -140,11 +140,11 @@ function renderEvalsSummary(testResults: TestResults): string {
 function renderConfiguration(config: Config): string {
   return `
 <ul class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm text-slate-600">
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Tool definitions</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${config.toolSchemaFile}</code></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Evals</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${config.evalsFile}</code></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Backend</strong> <span class="mt-1 text-slate-800">${config.backend}</span></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Model</strong> <span class="mt-1 text-slate-800">${config.model}</span></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Chrome channel</strong> <span class="mt-1 text-slate-800">${config.chromeChannel || "chrome-canary"}</span></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Tool definitions</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${escapeHtml(config.toolSchemaFile)}</code></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Evals</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${escapeHtml(config.evalsFile)}</code></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Backend</strong> <span class="mt-1 text-slate-800">${escapeHtml(config.backend)}</span></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Model</strong> <span class="mt-1 text-slate-800">${escapeHtml(config.model)}</span></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Chrome channel</strong> <span class="mt-1 text-slate-800">${escapeHtml(config.chromeChannel || "chrome-canary")}</span></li>
 </ul>`;
 }
 
@@ -663,8 +663,8 @@ function renderMessage(message: Message): string {
   return `
     <li class="flex flex-col space-y-2">
         <div class="flex items-center space-x-2">
-          <span class="px-2 py-0.5 rounded text-xs font-medium border capitalize ${roleBadgeClass}">${message.role}</span>
-          <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">${message.type}</span>
+          <span class="px-2 py-0.5 rounded text-xs font-medium border capitalize ${roleBadgeClass}">${escapeHtml(message.role)}</span>
+          <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">${escapeHtml(message.type)}</span>
         </div>
         <div>${content}</div>
     </li>`;
@@ -726,10 +726,10 @@ export function renderWebmcpReport(config: WebmcpConfig, testResults: TestResult
 function renderWebmcpConfiguration(config: WebmcpConfig): string {
   return `
 <ul class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm text-slate-600">
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">URL</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${config.url}</code></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Evals</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${config.evalsFile}</code></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Backend</strong> <span class="mt-1 text-slate-800">${config.backend}</span></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Model</strong> <span class="mt-1 text-slate-800">${config.model}</span></li>
-    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Chrome channel</strong> <span class="mt-1 text-slate-800">${config.chromeChannel || "chrome-canary"}</span></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">URL</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${escapeHtml(config.url)}</code></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Evals</strong> <code class="mt-1 px-2 py-1 bg-slate-100 rounded text-xs text-slate-800 font-mono break-all">${escapeHtml(config.evalsFile)}</code></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Backend</strong> <span class="mt-1 text-slate-800">${escapeHtml(config.backend)}</span></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Model</strong> <span class="mt-1 text-slate-800">${escapeHtml(config.model)}</span></li>
+    <li class="flex flex-col"><strong class="text-slate-900 font-medium">Chrome channel</strong> <span class="mt-1 text-slate-800">${escapeHtml(config.chromeChannel || "chrome-canary")}</span></li>
 </ul>`;
 }

@@ -118,6 +118,11 @@ export async function runLocalCommand(options: CommandOptions, command?: Command
   } else {
     await outputReports(config, finalResults, finalReporters, opts.outputDir, opts.open);
   }
+  setExitCodeFromResults(finalResults);
+}
+
+function setExitCodeFromResults(results: { failCount: number; errorCount: number }): void {
+  if (results.failCount > 0 || results.errorCount > 0) process.exitCode = 1;
 }
 
 export function getProgressBar(ratio: number, size = 10): string {
@@ -128,6 +133,21 @@ export function getProgressBar(ratio: number, size = 10): string {
   const filledPart = chalk.cyan("━".repeat(filled));
   const emptyPart = chalk.gray.dim("─".repeat(empty));
   return `${filledPart}${emptyPart}`;
+}
+
+/**
+ * Only the Vercel AI SDK backend implements multi-step browser evals. The
+ * Gemini and Ollama backends are single-turn and local-only; their models are
+ * reachable from `browser` through the Vercel backend's provider prefixes.
+ */
+export function assertBrowserBackend(backend: string | undefined): void {
+  if (backend && backend !== "vercel") {
+    throw new Error(
+      `The "${backend}" backend only supports the "local" command. ` +
+        `Use the default "vercel" backend for browser evals and pick the provider with a model ` +
+        `prefix, e.g. "-m google:gemini-3.8-flash" or "-m ollama:qwen2.5:14b".`,
+    );
+  }
 }
 
 export async function runWebCommand(options: CommandOptions, command?: Command): Promise<void> {
@@ -142,6 +162,8 @@ export async function runWebCommand(options: CommandOptions, command?: Command):
   });
 
   try {
+    assertBrowserBackend(opts.backend);
+
     const config: WebmcpConfig = {
       url,
       evalsFile,
@@ -221,6 +243,7 @@ export async function runWebCommand(options: CommandOptions, command?: Command):
     } else {
       await outputReports(config, finalResults, finalReporters, opts.outputDir, opts.open, true);
     }
+    setExitCodeFromResults(finalResults);
   } catch (error: any) {
     console.error(`\n${chalk.red.bold("❌ Error:")} ${error.message || error}\n`);
     process.exit(1);

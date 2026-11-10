@@ -14,6 +14,8 @@ concurrency:
 jobs:
   release:
     name: Release
+    # Publishes through Google's Wombat registry proxy, which only upstream can use.
+    if: github.repository == 'GoogleChromeLabs/webmcp-tools'
     runs-on: ubuntu-latest
 
     steps:

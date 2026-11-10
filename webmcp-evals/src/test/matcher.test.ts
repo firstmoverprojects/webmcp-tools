@@ -244,6 +244,29 @@ describe("matcher", () => {
       });
     });
 
+    describe("$eq", () => {
+      it("matches like a literal value", () => {
+        assert.strictEqual(matchesArgument({ $eq: "x" }, "x"), true);
+        assert.strictEqual(matchesArgument({ $eq: "x" }, "y"), false);
+        assert.strictEqual(matchesArgument({ $eq: [1, 2] }, [1, 2]), true);
+        assert.strictEqual(matchesArgument({ $eq: [1, 2] }, [2, 1]), false);
+      });
+    });
+
+    describe("unknown operators", () => {
+      it("throws instead of silently matching", () => {
+        assert.throws(
+          () => matchesArgument({ $lessThan: 5 }, 999),
+          /Unknown matcher operator "\$lessThan"/,
+        );
+        assert.throws(() => matchesArgument({ a: { $regex: "x" } }, { a: "x" }), /\$regex/);
+      });
+
+      it("throws for an unknown $type", () => {
+        assert.throws(() => matchesArgument({ $type: "integer" }, 1), /Unknown \$type "integer"/);
+      });
+    });
+
     describe("recursive constraints", () => {
       it("matches nested constraints", () => {
         const schema = {

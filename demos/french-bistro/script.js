@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DOMPurify from 'https://esm.sh/dompurify';
+
 const form = document.getElementById('reservationForm');
 const submitBtn = document.getElementById("submitBtn");
 const dialog = document.getElementById('bookingDialog');
@@ -38,10 +40,21 @@ if (isImperative) {
     element.removeAttribute("toolparamdescription");
   });
 
+  // Removing the attributes withdraws the declarative tool asynchronously, and
+  // registering the same name before that lands throws. The polyfill fires no
+  // toolchange event for this, so poll instead of waiting for one.
+  for (let i = 0; i < 40; i++) {
+    const tools = await document.modelContext.getTools();
+    if (!tools.some((t) => t.name === tool.name)) break;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
   document.modelContext.registerTool({
     name: tool.name,
     description: tool.description,
-    inputSchema: JSON.parse(tool.inputSchema),
+    // Chrome 155+ returns inputSchema as an object; earlier builds returned a JSON string.
+    inputSchema:
+      typeof tool.inputSchema === "string" ? JSON.parse(tool.inputSchema) : tool.inputSchema,
     execute: async (args = {}) => {
       for (const [key, value] of Object.entries(args)) {
         form.elements[key].value = value;
@@ -157,7 +170,9 @@ function showModal() {
     day: 'numeric',
   });
 
-  modalDetails.innerHTML = `Hello <strong>${name}</strong>,<br> We look forward to welcoming you on:<br><br> <strong>${dateStr}</strong> at <strong>${time}</strong><br> Party of <strong>${guests}</strong> &bull; ${seating}`;
+  modalDetails.innerHTML = DOMPurify.sanitize(
+    `Hello <strong>${name}</strong>,<br> We look forward to welcoming you on:<br><br> <strong>${dateStr}</strong> at <strong>${time}</strong><br> Party of <strong>${guests}</strong> &bull; ${seating}`
+  );
   dialog.showModal();
 }
 

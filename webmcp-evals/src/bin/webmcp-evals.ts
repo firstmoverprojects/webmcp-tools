@@ -6,7 +6,7 @@
  */
 
 import { createRequire } from "node:module";
-import { Command, InvalidArgumentError } from "commander";
+import { Command, InvalidArgumentError, Option } from "commander";
 import dotenv from "dotenv";
 import {
   runLocalCommand,
@@ -37,10 +37,14 @@ program
 
 // Global options shared across commands
 program
-  .option("-b, --backend <backend>", "Model backend (vercel, gemini, ollama)", "vercel")
+  .addOption(
+    new Option("-b, --backend <backend>", "Model backend")
+      .choices(["vercel", "gemini", "ollama"])
+      .default("vercel"),
+  )
   .option("-m, --model <model>", "Model identifier", "gemini-3.5-flash")
-  .option("-r, --runs <number>", "Number of runs per test case", (v) => parseInt(v, 10), 1)
-  .option("--max-steps <number>", "Maximum agent step count", (v) => parseInt(v, 10))
+  .option("-r, --runs <number>", "Number of runs per test case", positiveInteger, 1)
+  .option("--max-steps <number>", "Maximum agent step count", positiveInteger)
   .option("--reporter <reporters...>", "Reporters to use (console, json, html)", [
     "console",
     "html",

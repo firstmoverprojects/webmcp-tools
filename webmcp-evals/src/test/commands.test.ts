@@ -5,7 +5,22 @@
 
 import assert from "node:assert";
 import { describe, it } from "node:test";
-import { getProgressBar, generateConsoleSummaryTable } from "../commands/index.js";
+import {
+  assertBrowserBackend,
+  getProgressBar,
+  generateConsoleSummaryTable,
+} from "../commands/index.js";
+
+describe("assertBrowserBackend", () => {
+  it("accepts the vercel backend", () => {
+    assert.doesNotThrow(() => assertBrowserBackend("vercel"));
+  });
+
+  it("rejects local-only backends with a pointer to the provider prefix", () => {
+    assert.throws(() => assertBrowserBackend("gemini"), /only supports the "local" command/);
+    assert.throws(() => assertBrowserBackend("ollama"), /-m ollama:/);
+  });
+});
 
 // Helper to remove chalk ansi codes so we can match plain strings
 function cleanAnsi(str: any): string {

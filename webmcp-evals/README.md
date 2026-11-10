@@ -1,239 +1,245 @@
 # WebMCP Evals (`webmcp-evals`)
 
 > [!WARNING]
-> `webmcp-evals` is experimental tooling for evaluating WebMCP schema definitions, tool calling, and agentic workflows.
+> `webmcp-evals` is experimental tooling for evaluating WebMCP schema definitions, tool calling, and agentic workflows. WebMCP itself is a [Draft Community Group Report](https://webmachinelearning.github.io/webmcp/), not a W3C Standard, and its API is still changing.
 
-A TypeScript evaluation framework and CLI for testing the tool-calling capabilities of Large Language Models (LLMs) against WebMCP tools and browser sessions.
+A TypeScript evaluation framework and CLI for testing how well Large Language Models (LLMs) call WebMCP tools, either from static tool schemas or live on a web page driven by Puppeteer.
 
 ## Features
 
-- **CLI Interface**: Built with `commander` providing `local`, `browser`, and `smoke` commands.
-- **Execution Modes**:
-  - **`local`**: Runs evaluations against static JSON tool schema definition files.
-  - **`browser`**: Runs live evaluations against WebMCP tools exposed on web pages via Puppeteer.
-  - **`smoke`**: Executes concrete expected tool calls against a live page without an LLM or API key.
-- **Model Backends**: Supports `@google/genai` (`gemini`), Ollama (`ollama`), and Vercel AI SDK (`vercel`).
-- **Reporters**: Supports `console`, `json`, and `html` output to the `.evals` directory.
-- **Constraint-Based Matching**: Matches expected tool calls using regex patterns, numerical ranges, type checks, and orderings (`ordered` and `unordered`).
+- **`local`**: runs an eval suite against a static JSON tool schema. Needs an LLM, no browser.
+- **`browser`**: opens the page in Chrome, discovers the tools it registers with WebMCP, and lets an LLM call them for real. Needs an LLM and a Chrome build with WebMCP.
+- **`smoke`**: executes the expected calls from an eval suite directly against a live page. No LLM or API key; suitable for CI.
+- **`analyze`**: asks an LLM to explain failures in a saved JSON report.
+- **Model backends**: Vercel AI SDK (`vercel`, default; Google, OpenAI, Anthropic and Ollama models), `@google/genai` (`gemini`) and the Ollama client (`ollama`).
+- **Reporters**: `console`, `json` and `html`, written to `.evals/`.
+- **Constraint-based matching**: regex patterns, numeric ranges, type checks, and ordered, unordered and optional call groups.
 
-## Architecture
+## Requirements
 
+- Node.js 22 or newer (CI runs 22 and 24).
+- For `browser` and `smoke`: Chrome 151 or newer with WebMCP available. Puppeteer's WebMCP support [requires Chrome 151+](https://pptr.dev/guides/webmcp); the CLI launches Chrome with `--enable-features=WebMCP`. Pick the installed channel with `--chrome-channel` (the default is `chrome-canary`).
+- For `local`, `browser` and `analyze`: an API key for a hosted model, or a running [Ollama](https://ollama.com/) server.
+
+## Install
+
+This fork is not published to npm. `npx webmcp-evals` downloads the upstream [`webmcp-evals`](https://www.npmjs.com/package/webmcp-evals) package from [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools), which is newer than this source tree. To run the code in this repository, build it:
+
+```bash
+cd webmcp-evals
+npm ci
+npm run build
+node dist/bin/webmcp-evals.js --help
 ```
-src/
-├── bin/
-│   └── webmcp-evals.ts      # Main CLI entrypoint
-├── commands/
-│   └── index.ts             # Command handlers (local and browser)
-├── backends/                # LLM execution backends (Gemini, Vercel AI SDK, Ollama)
-├── evaluator/               # Core evaluation orchestration and browser automation
-├── matcher.ts               # Argument matching and trajectory evaluation engine
-├── report/                  # HTML report templates and rendering
-└── types/                   # TypeScript definitions
+
+The examples below use `node dist/bin/webmcp-evals.js`. Substitute `npx webmcp-evals` if you want the upstream release instead.
+
+## Configure API keys
+
+The CLI loads a `.env` file from the current directory. Only the keys for the providers you use are needed:
+
+```bash
+# Google models (any one of these names works)
+GOOGLE_AI=your_gemini_api_key
+# GEMINI_API_KEY=...
+# GOOGLE_GENERATIVE_AI_API_KEY=...
+
+OPENAI_API_KEY=your_openai_api_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+
+# Ollama server address (default http://127.0.0.1:11434)
+# OLLAMA_HOST=http://localhost:11434
+
+# Optional: override provider endpoints (corporate gateways or
+# self-hosted, OpenAI-compatible services).
+# OPENAI_BASE_URL=https://your-proxy.example.com/v1
+# ANTHROPIC_BASE_URL=https://your-proxy.example.com/anthropic
+# GOOGLE_GENERATIVE_AI_BASE_URL=https://your-proxy.example.com/google
 ```
 
-## Setup
+## Choosing a model
 
-1. **Install Dependencies**
+With the default `vercel` backend, the provider is chosen by a prefix on `--model`:
 
-   ```bash
-   npm install
-   ```
+| `--model` value                | Provider                             |
+| ------------------------------ | ------------------------------------ |
+| `gemini-3.8-flash` (no prefix) | Google                               |
+| `google:gemini-3.8-flash`      | Google                               |
+| `openai:<model>`               | OpenAI, or `OPENAI_BASE_URL` if set  |
+| `anthropic:<model>`            | Anthropic                            |
+| `ollama:qwen2.5:14b`           | Ollama via its OpenAI-compatible API |
 
-2. **Configure Environment**
+The default model is `gemini-3.5-flash`. As of 10 November 2026 Google lists it as [deprecated](https://ai.google.dev/gemini-api/docs/deprecations): it is no longer offered in AI Studio and API requests are routed to `gemini-3.6-flash`. Pass `-m` explicitly to pin a model; the examples here use `gemini-3.8-flash`, the newest Flash model on that page.
 
-   Create a `.env` file in your project directory with required API keys:
-
-   ```bash
-   GOOGLE_AI=your_gemini_api_key
-   OPENAI_API_KEY=your_openai_api_key
-   ANTHROPIC_API_KEY=your_anthropic_api_key
-   # OLLAMA_HOST=http://localhost:11434
-
-   # Optional: override the provider endpoint (useful for corporate LLM
-   # gateways or self-hosted, OpenAI-compatible services).
-   # OPENAI_BASE_URL=https://your-proxy.example.com/v1
-   # ANTHROPIC_BASE_URL=https://your-proxy.example.com/anthropic
-   # GOOGLE_GENERATIVE_AI_BASE_URL=https://your-proxy.example.com/google
-   ```
-
-3. **Build the Package**
-
-   ```bash
-   npm run build
-   ```
+The `gemini` and `ollama` backends (`-b gemini`, `-b ollama`) only support the `local` command and evaluate a single model turn. For `browser`, or for multi-step trajectories, use the default backend with a prefixed model.
 
 ## Usage
 
-> [!NOTE]
-> When running the published package, use `npx webmcp-evals <command>`. When developing locally prior to publishing, build first (`npm run build`) and run `node dist/bin/webmcp-evals.js <command>`.
-
-### Global Options
-
-Shared across commands:
+Global options go before the command name:
 
 | Option             | Shorthand | Default            | Description                                                             |
 | ------------------ | --------- | ------------------ | ----------------------------------------------------------------------- |
 | `--backend`        | `-b`      | `vercel`           | Model backend (`vercel`, `gemini`, `ollama`)                            |
-| `--model`          | `-m`      | `gemini-3.5-flash` | Model identifier                                                        |
-| `--runs`           | `-r`      | `1`                | Number of runs per test case                                            |
-| `--max-steps`      | —         | —                  | Maximum agent step count                                                |
-| `--reporter`       | —         | `console html`     | Reporters to use (`console`, `json`, `html`)                            |
+| `--model`          | `-m`      | `gemini-3.5-flash` | Model identifier (see above)                                            |
+| `--runs`           | `-r`      | `1`                | Runs per test case (positive integer)                                   |
+| `--max-steps`      | -         | -                  | Maximum agent steps (positive integer)                                  |
+| `--reporter`       | -         | `console html`     | One or more of `console`, `json`, `html`                                |
 | `--output-dir`     | `-o`      | `.evals`           | Output directory for reports                                            |
-| `--analyzer-model` | —         | `gemini-3.5-flash` | Model identifier for report analysis                                    |
-| `--open-analysis`  | —         | `false`            | Automatically open the analysis report                                  |
-| `--chrome-channel` | —         | `chrome-canary`    | Chrome channel (`chrome`, `chrome-beta`, `chrome-canary`, `chrome-dev`) |
+| `--analyzer-model` | -         | `gemini-3.5-flash` | Model used for report analysis                                          |
+| `--open-analysis`  | -         | `false`            | Open the analysis report when it is written                             |
+| `--chrome-channel` | -         | `chrome-canary`    | Chrome channel (`chrome`, `chrome-beta`, `chrome-canary`, `chrome-dev`) |
 
----
+`--reporter` accepts several values, so it would consume a command name that follows it. Put another option after it, for example `--reporter console json -m google:gemini-3.8-flash local ...`.
 
-### Command: `local`
+### Exit codes
 
-Evaluates static tool schema JSON files.
+`local`, `browser` and `smoke` exit with status `1` when any case fails or errors, and `0` when every case passes, so they can gate CI.
 
-```bash
-npx webmcp-evals local -t examples/pizza-maker/schema.json -e examples/pizza-maker/evals.json
-```
+### `smoke`: deterministic checks, no LLM
 
-With Gemini backend and specified model:
+Runs each case's required `expectedCall` entries, in authored order, on a fresh page. Optional calls are skipped. Matcher constraints (`$pattern`, `$contains`, `$type`, `$lte` and so on) are turned into concrete sample arguments, so the same suite works for LLM evals and smoke tests.
 
-```bash
-npx webmcp-evals local -b gemini -m gemini-3.5-flash -t examples/pizza-maker/schema.json -e examples/pizza-maker/evals.json
-```
-
-| Option               | Required | Default | Description                                         |
-| -------------------- | -------- | ------- | --------------------------------------------------- |
-| `-t, --tools <path>` | Yes      | —       | Path to tool schema JSON file                       |
-| `-e, --evals <path>` | Yes      | —       | Path to evals test suite JSON file                  |
-| `--analyze`          | No       | `false` | Automatically run LLM report analysis on completion |
-
----
-
-### Command: `browser`
-
-Evaluates live WebMCP tools on a web page using Puppeteer.
+Against the hosted pizza demo:
 
 ```bash
-npx webmcp-evals browser -u https://example.com/demo -e examples/pizza-maker/evals.json --open
+node dist/bin/webmcp-evals.js --chrome-channel chrome smoke \
+  -u https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/ \
+  -e examples/pizza-maker/evals.json
 ```
 
-| Option               | Required | Default | Description                                         |
-| -------------------- | -------- | ------- | --------------------------------------------------- |
-| `-u, --url <url>`    | Yes      | —       | Target web page URL                                 |
-| `-e, --evals <path>` | Yes      | —       | Path to evals test suite JSON file                  |
-| `--open`             | No       | `false` | Opens the HTML report in browser upon completion    |
-| `--analyze`          | No       | `false` | Automatically run LLM report analysis on completion |
-
----
-
-### Command: `smoke`
-
-Executes the required calls from `expectedCall` directly against a live WebMCP page. This mode
-does not use an LLM or require an API key, making it suitable for deterministic CI smoke tests.
+Against a demo served from this repository:
 
 ```bash
-npx webmcp-evals smoke -u http://localhost:3000 -e examples/pizza-maker/evals.json -v
+# from the repository root, in another terminal
+python3 -m http.server 3000 --directory demos
+
+# from webmcp-evals/
+node dist/bin/webmcp-evals.js --chrome-channel chrome smoke \
+  -u http://localhost:3000/doors/ \
+  -e examples/doors/evals.json -v
 ```
 
-The target server must already be running. Each eval case starts with a fresh page, and calls in
-that case execute in their authored order. Optional calls are skipped. Matcher constraints
-(such as `$pattern`, `$contains`, `$type`, `$lte`) in `expectedCall` definitions are automatically
-resolved to concrete sample arguments so standard evaluation suites can be reused directly.
+| Option                     | Required | Default | Description                             |
+| -------------------------- | -------- | ------- | --------------------------------------- |
+| `-u, --url <url>`          | Yes      | -       | Target page URL                         |
+| `-e, --evals <path>`       | Yes      | -       | Eval suite JSON                         |
+| `--timeout <milliseconds>` | No       | `30000` | Timeout per navigation or tool step     |
+| `-v, --verbose`            | No       | `false` | Print step-by-step navigation and calls |
 
-| Option                     | Required | Default | Description                                           |
-| -------------------------- | -------- | ------- | ----------------------------------------------------- |
-| `-u, --url <url>`          | Yes      | —       | Target web page URL                                   |
-| `-e, --evals <path>`       | Yes      | —       | Path to evals test suite JSON file                    |
-| `--timeout <milliseconds>` | No       | `30000` | Timeout per navigation or tool step                   |
-| `-v, --verbose`            | No       | `false` | Print live step-by-step navigation and tool call logs |
-
----
-
-### Command: `analyze`
-
-Analyzes an evaluation JSON report using an LLM to identify root causes and hypotheses for evaluation failures.
+### `local`: evals against a static schema
 
 ```bash
-npx webmcp-evals analyze .evals/report-1784621327799.json --open
+node dist/bin/webmcp-evals.js -m google:gemini-3.8-flash local \
+  -t examples/pizza-maker/schema.json \
+  -e examples/pizza-maker/evals.json
 ```
 
-| Argument/Option       | Required | Default            | Description                                                        |
-| --------------------- | -------- | ------------------ | ------------------------------------------------------------------ |
-| `<report-path>`       | Yes      | —                  | Path to the JSON or HTML report file (e.g. `.evals/report-*.json`) |
-| `-m, --model <model>` | No       | `gemini-3.5-flash` | Model identifier to run the report analysis                        |
-| `--open`              | No       | `false`            | Automatically open the analysis markdown report in the browser     |
+The examples that ship a `schema.json` are `address-form`, `commerce/retail`, `commerce/shopping`, `events`, `healthcare`, `pizza-maker`, `real-estate` and `travel`. Tool results come from each expected call's `mockOutput` (default `{}`).
 
----
+| Option               | Required | Default | Description                                  |
+| -------------------- | -------- | ------- | -------------------------------------------- |
+| `-t, --tools <path>` | Yes      | -       | Tool schema JSON                             |
+| `-e, --evals <path>` | Yes      | -       | Eval suite JSON                              |
+| `--analyze`          | No       | `false` | Run LLM report analysis when the run is done |
 
-## Test Suite Schema (`evals.json`)
+### `browser`: evals against a live page
+
+```bash
+node dist/bin/webmcp-evals.js --chrome-channel chrome -m google:gemini-3.8-flash browser \
+  -u https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/ \
+  -e examples/pizza-maker/evals.json --open
+```
+
+| Option               | Required | Default | Description                                  |
+| -------------------- | -------- | ------- | -------------------------------------------- |
+| `-u, --url <url>`    | Yes      | -       | Target page URL                              |
+| `-e, --evals <path>` | Yes      | -       | Eval suite JSON                              |
+| `--open`             | No       | `false` | Open the HTML report when it is written      |
+| `--analyze`          | No       | `false` | Run LLM report analysis when the run is done |
+
+### `analyze`: explain failures
+
+```bash
+node dist/bin/webmcp-evals.js analyze .evals/report-1784621327799.json --open
+```
+
+| Argument/Option       | Required | Default            | Description                                       |
+| --------------------- | -------- | ------------------ | ------------------------------------------------- |
+| `<report-path>`       | Yes      | -                  | JSON or HTML report (e.g. `.evals/report-*.json`) |
+| `-m, --model <model>` | No       | `gemini-3.5-flash` | Model used for the analysis                       |
+| `--open`              | No       | `false`            | Open the analysis report in the browser           |
+
+## Eval suite format (`evals.json`)
+
+An eval suite is a JSON array of cases. Each case has a conversation (`messages`) and the tool calls the model is expected to make (`expectedCall`). This case is taken from `examples/pizza-maker/evals.json`:
 
 ```json
 [
   {
-    "name": "Search shoes under $120",
     "messages": [
       {
         "role": "user",
         "type": "message",
-        "content": "I'm looking for running shoes under $120."
+        "content": "Make me a large pepperoni pizza."
       }
     ],
     "expectedCall": [
-      {
-        "functionName": "searchProducts",
-        "arguments": {
-          "query": "running shoes",
-          "maxPrice": { "$lte": 120 }
-        }
-      }
+      { "functionName": "set_pizza_size", "arguments": { "size": "Large" } },
+      { "functionName": "add_topping", "arguments": { "topping": "🍕" } }
     ]
   }
 ]
 ```
 
-### Argument Matching Operators
+| Field                         | Description                                                                                                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                        | Optional label shown in reports.                                                                                                                                                |
+| `messages[]`                  | `{role: "user" \| "model", type: "message", content}`, `{role: "model", type: "functioncall", name, arguments}`, or `{role: "user", type: "functionresponse", name, response}`. |
+| `expectedCall`                | Array of expected calls and groups, matched in order. `null` means the model should not call any tool.                                                                          |
+| `expectedCall[].functionName` | Tool name.                                                                                                                                                                      |
+| `expectedCall[].arguments`    | Expected arguments, using literals or the operators below. Omit it (or use `null`) to accept any arguments.                                                                     |
+| `expectedCall[].result`       | Optional expected tool result, matched with the same operators as `arguments`.                                                                                                  |
+| `expectedCall[].mockOutput`   | Optional result returned to the model in `local` runs. Defaults to `{}`.                                                                                                        |
+| `expectedCall[].optional`     | `true` if the call may be skipped without failing the case.                                                                                                                     |
+| `{"ordered": [...]}`          | Group whose calls must appear in this order.                                                                                                                                    |
+| `{"unordered": [...]}`        | Group whose calls may appear in any order (see `examples/pizza-maker/evals-unordered.json`).                                                                                    |
 
-| Operator      | Description             | Example                         |
-| ------------- | ----------------------- | ------------------------------- |
-| `$pattern`    | Regex match             | `{"$pattern": "^2026-\\d{2}$"}` |
-| `$contains`   | Substring match         | `{"$contains": "York"}`         |
-| `$gt`, `$gte` | Greater than (or equal) | `{"$gte": 1}`                   |
-| `$lt`, `$lte` | Less than (or equal)    | `{"$lte": 120}`                 |
-| `$type`       | Type check              | `{"$type": "string"}`           |
-| `$any`        | Field presence check    | `{"$any": true}`                |
+### Argument matching operators
 
-## Development & Testing
+| Operator      | Description                                                | Example                         |
+| ------------- | ---------------------------------------------------------- | ------------------------------- |
+| `$eq`         | Exact (deep) equality                                      | `{"$eq": {"unit": "C"}}`        |
+| `$pattern`    | Regular expression match                                   | `{"$pattern": "^2026-\\d{2}$"}` |
+| `$contains`   | Substring match                                            | `{"$contains": "York"}`         |
+| `$gt`, `$gte` | Greater than (or equal)                                    | `{"$gte": 1}`                   |
+| `$lt`, `$lte` | Less than (or equal)                                       | `{"$lte": 120}`                 |
+| `$type`       | `string`, `number`, `boolean`, `object`, `array` or `null` | `{"$type": "string"}`           |
+| `$any`        | Field must be present, any value                           | `{"$any": true}`                |
 
-To compile the TypeScript source files:
+Operators can be combined in one object (`{"$gte": 1, "$lte": 5}`). An unknown operator such as `$regex` is an error rather than a silent mismatch.
 
-```bash
-npm run build
-```
-
-To run the complete test suite:
-
-```bash
-npm test
-```
-
-To run only the report analyzer unit tests:
-
-```bash
-node --test dist/test/analyzer.test.js
-```
-
-### Batch Script Execution
-
-You can run evaluations or deterministic smoke tests across all deployed WebMCP demo targets:
+## Development and testing
 
 ```bash
-# Run smoke tests for a single target or all demo sites
-./run_smoke.sh hotel-chain -v
-./run_smoke.sh all -v
-
-# Run LLM-based evaluations
-./run_evals.sh hotel-chain
-./run_evals.sh all
+npm ci
+npm test        # formats with oxfmt, compiles, then runs node --test on dist/test/*.test.js
+npm run lint    # oxlint
 ```
+
+`npm run build` and `npm test` rewrite source formatting with `oxfmt --write`; CI compiles with `npx tsc` directly. A single test file can be run after building, for example `node --test dist/test/matcher.test.js`.
+
+### Batch scripts
+
+`run_smoke.sh` and `run_evals.sh` run every bundled example against the hosted demos on `googlechromelabs.github.io`, which are deployed from upstream rather than from this fork:
+
+```bash
+CHROME_CHANNEL=chrome ./run_smoke.sh pizza -v
+CHROME_CHANNEL=chrome ./run_smoke.sh all
+./run_evals.sh all          # needs an API key
+```
+
+Set `BASE_URL=http://localhost:3000` to point the per-demo paths at a local server instead, or `URL=...` to run one target against an explicit page.
 
 ## License
 
-Apache-2.0
+Apache-2.0. See [LICENSE](LICENSE).

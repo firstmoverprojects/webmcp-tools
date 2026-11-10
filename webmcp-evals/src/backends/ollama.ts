@@ -50,12 +50,12 @@ export class OllamaBackend implements Backend {
         case "message":
           return {
             content: m.content,
-            role: m.role,
+            role: m.role === "model" ? "assistant" : m.role,
           };
 
         case "functioncall":
           return {
-            role: "model",
+            role: "assistant",
             // Technically, `content` is not required by the Ollama REST API, but required
             // by the library type system.
             content: "",
@@ -73,7 +73,7 @@ export class OllamaBackend implements Backend {
           return {
             role: "tool",
             tool_name: m.name,
-            content: String(m.response),
+            content: JSON.stringify(m.response),
           };
       }
     });

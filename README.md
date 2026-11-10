@@ -1,34 +1,192 @@
-# Collection of WebMCP tools
+# WebMCP tools
 
-This repository contains a suite of developer utilities and demos designed to support the adoption of the WebMCP API.
+Developer utilities and demos for [WebMCP](https://webmachinelearning.github.io/webmcp/), the proposed
+web API that lets a page expose JavaScript functions to AI agents as structured "tools" through
+`document.modelContext`.
 
-## Developer Utilities
+The main piece of code here is [`webmcp-evals`](webmcp-evals/), a CLI that checks whether WebMCP
+tools on a page work and whether LLMs call them correctly. The rest of the repository is a set of
+demo sites that expose WebMCP tools, a polyfill for browsers without WebMCP, and pointers to related
+tools.
 
-- [**WebMCP - Model Context Tool Inspector**](https://github.com/beaufortfrancois/model-context-tool-inspector): A Chrome Extension to let web developers inspect web pages to verify if WebMCP tools are correctly exposed, visualize the input schema, and debug connection issues directly within the browser.
-- [**WebMCP Evals**](webmcp-evals/): A CLI Tool to evaluate the tool-calling capabilities of LLMs by defining test cases and schemas to verify if an interactive agent correctly calls tools based on user inputs.
-- [**WebMCP Polyfill**](demos/shared/webmcp-polyfill.js): A JavaScript polyfill to make WebMCP tools and CSS pseudo-classes work in browsers that do not support the API natively.
+> [!IMPORTANT]
+> This repository is a fork of
+> [GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools). As of
+> 10 November 2026 it is 124 commits behind upstream, which has since added features such as
+> simulated conversations and extension-based evals. The `webmcp-evals` package on npm
+> (currently 0.1.0) is published from upstream, so `npx webmcp-evals` runs upstream's code, not the
+> code in this repository (0.0.4). To run the code in this repository, build it from source as shown
+> below.
+
+## WebMCP status
+
+Verified on 10 November 2026 against the official sources linked below.
+
+- **Specification.** [WebMCP](https://webmachinelearning.github.io/webmcp/) is a _Draft Community
+  Group Report_ (dated 10 November 2026) of the W3C
+  [Web Machine Learning Community Group](https://www.w3.org/community/webmachinelearning/). The
+  document states that it is not a W3C Standard and is not on the W3C Standards Track. Development
+  happens in [webmachinelearning/webmcp](https://github.com/webmachinelearning/webmcp), and
+  conformance tests are tracked on [wpt.fyi](https://wpt.fyi/results/webmcp).
+- **What the spec defines.** An imperative API on `document.modelContext` (a `ModelContext`
+  `EventTarget`, secure contexts only):
+  - `registerTool(tool, { signal, exposedTo })` takes `name`, `description`, `execute`, and
+    optionally `title`, `inputSchema`, `outputSchema` and `annotations` (`readOnlyHint`,
+    `untrustedContentHint`, `consequentialHint`, `debugging`). To unregister a tool, abort the
+    `signal`; the spec has no `unregisterTool()` or `provideContext()`, and nothing on `navigator`.
+  - `getTools({ fromOrigins })` lists registered tools.
+  - `executeTool(tool, inputObject, { signal })` runs a tool. `inputObject` is a JavaScript object,
+    not a JSON string.
+  - `toolchange`, `toolactivated` and `toolcancel` events.
+  - Access is gated by the `tools` permissions-policy feature (default allowlist `'self'`), so
+    cross-origin iframes need `allow="tools"`.
+- **Declarative API.** The `<form toolname tooldescription toolautosubmit>` attributes used by several
+  demos are **not** part of the specification. They are explored separately in the
+  [declarative API explainer](https://github.com/webmachinelearning/webmcp/blob/main/declarative-api-explainer.md).
+  Chrome documents and implements them ([Chrome WebMCP docs](https://developer.chrome.com/docs/ai/webmcp)).
+- **Browser support**, per the spec repository's
+  [implementation status](https://github.com/webmachinelearning/webmcp/blob/main/implementation-status.md):
+  - Chrome: [origin trial](https://developer.chrome.com/blog/ai-webmcp-origin-trial) from Chrome 149.
+    For local development, enable `chrome://flags/#enable-webmcp-testing`
+    ([Chrome Status entry](https://chromestatus.com/feature/5117755740913664)).
+  - Edge: origin trial in Edge 150.
+  - Brave: experimental support in Leo AI chat. ChatGPT Desktop: supported.
+  - Firefox and Safari: no implementation. Mozilla's standards position is
+    [neutral](https://github.com/mozilla/standards-positions/issues/1412).
+    WebKit's is [oppose](https://github.com/WebKit/standards-positions/issues/670).
+- **Automation.** Puppeteer's [WebMCP API](https://pptr.dev/guides/webmcp) (`page.webmcp`), which
+  `webmcp-evals` uses, needs Chrome 151 or later launched with `--enable-features=WebMCP`. The CLI
+  passes that flag for you.
+
+## What's in this repository
+
+| Path | What it is |
+| --- | --- |
+| [`webmcp-evals/`](webmcp-evals/) | TypeScript CLI: deterministic smoke tests of a page's WebMCP tools (no LLM needed), and LLM tool-calling evals against static schemas or live pages. |
+| [`demos/`](demos/) | Demo sites that expose WebMCP tools (list below). |
+| [`demos/shared/webmcp-polyfill.js`](demos/shared/webmcp-polyfill.js) | Polyfill for `document.modelContext`, declarative form tools and the `:tool-form-active` / `:tool-submit-active` CSS pseudo-classes, for browsers without WebMCP. |
+| [`demos/shared/webmcp-batch.js`](demos/shared/webmcp-batch.js) | Registers an `execute_batch` tool that runs a sequence of tool calls with `$ref:` references between steps. Used by the Page Agent demo. |
+| [`model-context-tool-inspector/`](https://github.com/beaufortfrancois/model-context-tool-inspector) | Git submodule: a Chrome extension that lists a page's WebMCP tools and lets you call them. |
+| [`webmcp-studio/`](webmcp-studio/) | Prompts for having a coding agent add WebMCP tools to a site. |
+| [`AWESOME_WEBMCP.md`](AWESOME_WEBMCP.md) | Community list of WebMCP demos, libraries and tools. |
+
+## Quick start
+
+Requirements: Node.js 22 or later, and Google Chrome 151 or later (current Stable works). The smoke
+test below needs no API key.
+
+```bash
+git clone --recurse-submodules https://github.com/firstmoverprojects/webmcp-tools.git
+cd webmcp-tools/webmcp-evals
+npm ci
+npm run build
+
+# Call every expected tool in the pizza-maker evals directly on the hosted demo.
+node dist/bin/webmcp-evals.js --chrome-channel chrome smoke \
+  -u https://googlechromelabs.github.io/webmcp-tools/demos/pizza-maker/ \
+  -e examples/pizza-maker/evals.json
+```
+
+The last line of output should be `Passed steps: 9/9 across 9 case(s).` The command exits with
+code 1 if any step fails, so it can gate CI.
+
+To test against your local copy of the demos instead, serve the `demos/` directory and point `-u`
+at it:
+
+```bash
+# In one terminal, from the repository root:
+python3 -m http.server 3000 --directory demos
+
+# In another, from webmcp-evals/:
+node dist/bin/webmcp-evals.js --chrome-channel chrome smoke \
+  -u http://localhost:3000/doors/ -e examples/doors/evals.json
+```
+
+LLM-based evals (`local` and `browser`) need a model provider key; see the
+[`webmcp-evals` README](webmcp-evals/README.md).
 
 ## Demos
 
-- [**A mini-site explainer of WebMCP**](demos/explainer/):
-  A side-by-side demo of how AI agents interact with a web page before WebMCP (site scraping)
-  and a future where the page declares structured tools with **WebMCP**.
-- [**Travel WebMCP Demo (Imperative)**](demos/react-flightsearch/): A React-based flight search application designed to demonstrate WebMCP integration. This project showcases how a web application can expose structured tools to an AI agent or automation layer, allowing it to programmatically interact with the UI (searching flights, applying filters, reading results) via a standardized interface.
-- [**Le Petit Bistro (Declarative)**](demos/french-bistro/): A WebMCP simple implementation for a restaurant reservation system. It allows an AI agent to interact directly with a web-based booking form, validating and submitting data on behalf of the user using declarative tool definitions.
-- [**WebMCP zaMaker! (Imperative)**](demos/pizza-maker/): A demo where AI agents can control size, style, toppings, and layers to build the perfect pizza using imperative tools.
-- [**Mystery Doors (Declarative & Imperative)**](demos/doors/): A simple multi-page demo showcasing WebMCP capabilities using both declarative and imperative approaches.
-- [**WebMCP Maze (Imperative)**](demos/webmcp-maze/): A maze escape game where the player navigates entirely by prompting an AI agent in the browser — no keyboard or mouse input.
-- [**CineFlow (Imperative)**](demos/ticket-booking/): A movie ticket purchase flow where AI agents can update location, query movies by genre, and select showtimes to start a checkout process.
-- [**Order Tracking (Declarative)**](demos/order-tracking/): A simulated e-commerce order tracking and returns system allowing an AI agent to query order history and initiate product returns using declarative tools.
-- [**L'Atelier Hotel Chain (Imperative & Declarative)**](demos/hotel-chain/): A high-fidelity hotel booking application designed to showcase the power of WebMCP. This demo illustrates how AI agents can interact with a modern web application through both imperative and declarative tools.
-- [**WebMCP Sports (Imperative & Declarative)**](demos/sport-shop-angular/): A modern e-commerce storefront for high-performance sports equipment, built with Angular and Vanilla CSS.
-- [**The Morning Ritual (Imperative)**](demos/coffee-shop/): A premium coffee boutique demo showcasing agentic reordering, technical spec analysis, and catalog navigation.
-- [**UrbanEstates (Imperative)**](demos/real-estate-map/): A real-estate map application that demonstrates imperative tool registration, allowing an AI agent to interact with property filters and map views.
-- [**Luxe Leather (Declarative)**](demos/leather-bag/): A premium e-commerce site for hand-crafted leather bags built with Angular and WebMCP. This demo showcases how an AI agent can interact with a web application to search products, check policies, and manage a shopping cart using declarative tools.
-- [**WebMCP Smart Home (Imperative)**](demos/smart-home/): A sleek, interactive dashboard where an AI agent can dynamically reconfigure home control components (e.g., front door cameras, thermostats, smart lights, energy distribution) based on user intents.
-- [**WebMCP Page Agent (Imperative)**](demos/page-agent/): A Gemini-powered meta-demo that lets you control any WebMCP-enabled website using simple natural language commands.
+Hosted versions of the demos are on upstream's GitHub Pages at
+`https://googlechromelabs.github.io/webmcp-tools/demos/<name>/`. The static demos (no
+`package.json`) run from any static file server, as in the quick start above. The others are Vite
+or Angular apps; build them all with `./build-demos.sh`, or run one with `npm ci && npm run dev`
+(Angular: `npm start`) inside its directory. To use the native API rather than the polyfill, open
+them in Chrome with `chrome://flags/#enable-webmcp-testing` enabled. The Page Agent and Sport Shop
+demos ask for your own Gemini API key in the browser.
 
-Check out our curated list of WebMCP demos in the [Awesome WebMCP List](AWESOME_WEBMCP.md).
+- [**WebMCP explainer**](demos/explainer/): side-by-side comparison of an agent scraping a page
+  versus calling tools the page declares with WebMCP.
+- [**Travel (imperative)**](demos/react-flightsearch/): React flight search that exposes searching,
+  filtering and reading results as tools.
+- [**Le Petit Bistro (declarative)**](demos/french-bistro/): restaurant booking form exposed as a
+  declarative tool, with an in-page agent.
+- [**WebMCP zaMaker! (imperative)**](demos/pizza-maker/): build a pizza (size, style, toppings,
+  layers) through tools.
+- [**Mystery Doors (declarative and imperative)**](demos/doors/): small multi-page demo using both
+  approaches.
+- [**WebMCP Maze (imperative)**](demos/webmcp-maze/): a maze game played only by prompting an agent.
+- [**CineFlow (imperative)**](demos/ticket-booking/): movie ticket flow: location, genre search,
+  showtimes, checkout.
+- [**Order Tracking (declarative)**](demos/order-tracking/): order history lookup and returns.
+- [**L'Atelier Hotel Chain (imperative and declarative)**](demos/hotel-chain/): React hotel search
+  and booking.
+- [**WebMCP Sports (imperative and declarative)**](demos/sport-shop-angular/): Angular storefront
+  with an in-page Gemini agent.
+- [**The Morning Ritual (imperative)**](demos/coffee-shop/): coffee shop with reordering and product
+  spec tools.
+- [**UrbanEstates (imperative)**](demos/real-estate-map/): real-estate map with filter and map-view
+  tools.
+- [**Luxe Leather (declarative)**](demos/leather-bag/): Angular store with product search, policy
+  and cart tools.
+- [**WebMCP Smart Home (imperative)**](demos/smart-home/): dashboard an agent can reconfigure.
+- [**Analytics Dashboard (imperative)**](demos/analytics-dashboard/): React charts driven by a query
+  tool.
+- [**WebMCP Page Agent (imperative)**](demos/page-agent/): a Gemini-powered agent that drives any
+  WebMCP-enabled page, batching calls through `execute_batch`.
+
+## Development
+
+```bash
+# Shared demo helpers (from the repository root)
+node --test demos/shared/*.test.js
+
+cd webmcp-evals
+npm ci
+npm test                          # format, compile and run the unit tests; no network or API keys
+npm run lint && npx oxfmt --check # lint and format check, as CI runs them
+```
+
+GitHub Actions runs on every push and pull request to `main`:
+
+- **Tests**: `webmcp-evals` type-check, unit tests on Node 22 and 24, and an `npm pack` dry run,
+  plus the `demos/shared` tests.
+- **Lint and Format**: `oxlint` and `oxfmt --check` for `webmcp-evals`.
+- **Smoke Tests**: serves six demos locally and runs `webmcp-evals smoke` against each in Chrome
+  Stable, including all four Le Petit Bistro modes.
+
+The **Deploy Demos to Pages** and **npm Release** workflows only run on
+`GoogleChromeLabs/webmcp-tools`: Pages is not enabled on this fork, and releases publish through
+Google's registry proxy. To host the demos from a fork, enable GitHub Pages (source: GitHub
+Actions) and remove the `if:` line from `.github/workflows/deploy.yml`.
+
+## Changes in this fork
+
+As of 10 November 2026, this fork modifies the upstream Apache-2.0 work. The
+changes are bug fixes in `webmcp-evals` and the demos, new unit tests and a
+free CI workflow, a rewrite of this README and the evals/example docs, an
+HTTPS submodule URL, and job-level `if:` guards so the Pages and npm release
+workflows run only on `GoogleChromeLabs/webmcp-tools`. See the pull request
+history for the file-level diff.
+
+## License
+
+[Apache License 2.0](LICENSE). Not affiliated with or endorsed by Google.
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) is upstream's file and is unchanged. The Google
+CLA applies only if you send a contribution to
+[GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools).
+It does not apply to pull requests or merges on this fork.
 
 ## Disclaimer
 

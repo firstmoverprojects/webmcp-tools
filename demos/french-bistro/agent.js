@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import DOMPurify from 'https://esm.sh/dompurify';
+
 const agentToggle = document.getElementById('agent-toggle');
 const agentChat = document.getElementById('agent-chat');
 const agentChatWindow = document.getElementById('agent-chat-window');
@@ -121,9 +123,22 @@ function initSharedWorker(apiKey) {
           agentSendBtn.textContent = 'Abort';
           agentSendBtn.disabled = false;
 
-          const result = await document.modelContext.executeTool(tool, payload.args, {
-            signal: abortController.signal,
-          });
+          const inputObject = typeof payload.args === 'string' ? JSON.parse(payload.args) : payload.args;
+          let result;
+          try {
+            result = await document.modelContext.executeTool(tool, inputObject, {
+              signal: abortController.signal,
+            });
+          } catch (e) {
+            // TODO: Remove when executeTool doesn't accept JSON stringified inputArgs in Chrome Stable.
+            if (e.message.startsWith('Failed to parse input')) {
+              result = await document.modelContext.executeTool(tool, JSON.stringify(inputObject), {
+                signal: abortController.signal,
+              });
+            } else {
+              throw e;
+            }
+          }
           worker.port.postMessage({ type: 'TOOL_RESPONSE', payload: { result }, id });
         } catch (error) {
           const aborted = abortController?.signal.aborted;
@@ -255,9 +270,21 @@ async function handleUserSubmit() {
             agentSendBtn.textContent = 'Abort';
             agentSendBtn.disabled = false;
 
-            const result = await document.modelContext.executeTool(tool, JSON.stringify(args), {
-              signal: abortController.signal,
-            });
+            let result;
+            try {
+              result = await document.modelContext.executeTool(tool, args, {
+                signal: abortController.signal,
+              });
+            } catch (e) {
+              // TODO: Remove when executeTool doesn't accept JSON stringified inputArgs in Chrome Stable.
+              if (e.message.startsWith('Failed to parse input')) {
+                result = await document.modelContext.executeTool(tool, JSON.stringify(args), {
+                  signal: abortController.signal,
+                });
+              } else {
+                throw e;
+              }
+            }
             toolResponses.push({ functionResponse: { name, response: { result } } });
           } catch (error) {
             if (abortController?.signal.aborted) {
@@ -297,7 +324,7 @@ async function handleUserSubmit() {
 function appendMessage(sender, text, className) {
   const msgDiv = document.createElement('div');
   msgDiv.className = `agent-message ${className}`;
-  msgDiv.innerHTML = text.replace(/\n/g, '<br>');
+  msgDiv.innerHTML = DOMPurify.sanitize(text.replace(/\n/g, '<br>'));
   agentChatWindow.appendChild(msgDiv);
   agentChatWindow.scrollTop = agentChatWindow.scrollHeight;
 }
