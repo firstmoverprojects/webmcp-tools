@@ -51,9 +51,9 @@ Verified on 10 November 2026 against the official sources linked below.
     ([Chrome Status entry](https://chromestatus.com/feature/5117755740913664)).
   - Edge: origin trial in Edge 150.
   - Brave: experimental support in Leo AI chat. ChatGPT Desktop: supported.
-  - Firefox and Safari: no implementation; standards positions are open
-    ([Mozilla](https://github.com/mozilla/standards-positions/issues/1412),
-    [WebKit](https://github.com/WebKit/standards-positions/issues/670)).
+  - Firefox and Safari: no implementation. Mozilla's standards position is
+    [neutral](https://github.com/mozilla/standards-positions/issues/1412).
+    WebKit's is [oppose](https://github.com/WebKit/standards-positions/issues/670).
 - **Automation.** Puppeteer's [WebMCP API](https://pptr.dev/guides/webmcp) (`page.webmcp`), which
   `webmcp-evals` uses, needs Chrome 151 or later launched with `--enable-features=WebMCP`. The CLI
   passes that flag for you.
@@ -170,10 +170,23 @@ The **Deploy Demos to Pages** and **npm Release** workflows only run on
 Google's registry proxy. To host the demos from a fork, enable GitHub Pages (source: GitHub
 Actions) and remove the `if:` line from `.github/workflows/deploy.yml`.
 
+## Changes in this fork
+
+As of 10 November 2026, this fork modifies the upstream Apache-2.0 work. The
+changes are bug fixes in `webmcp-evals` and the demos, new unit tests and a
+free CI workflow, a rewrite of this README and the evals/example docs, an
+HTTPS submodule URL, and job-level `if:` guards so the Pages and npm release
+workflows run only on `GoogleChromeLabs/webmcp-tools`. See the pull request
+history for the file-level diff.
+
 ## License
 
-[Apache License 2.0](LICENSE). [`CONTRIBUTING.md`](CONTRIBUTING.md) describes upstream's process,
-which requires the Google CLA.
+[Apache License 2.0](LICENSE). Not affiliated with or endorsed by Google.
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) is upstream's file and is unchanged. The Google
+CLA applies only if you send a contribution to
+[GoogleChromeLabs/webmcp-tools](https://github.com/GoogleChromeLabs/webmcp-tools).
+It does not apply to pull requests or merges on this fork.
 
 ## Disclaimer
 

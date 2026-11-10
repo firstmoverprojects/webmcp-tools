@@ -82,12 +82,12 @@ Global options go before the command name:
 | `--backend`        | `-b`      | `vercel`           | Model backend (`vercel`, `gemini`, `ollama`)                            |
 | `--model`          | `-m`      | `gemini-3.5-flash` | Model identifier (see above)                                            |
 | `--runs`           | `-r`      | `1`                | Runs per test case (positive integer)                                   |
-| `--max-steps`      | —         | —                  | Maximum agent steps (positive integer)                                  |
-| `--reporter`       | —         | `console html`     | One or more of `console`, `json`, `html`                                |
+| `--max-steps`      | -         | -                  | Maximum agent steps (positive integer)                                  |
+| `--reporter`       | -         | `console html`     | One or more of `console`, `json`, `html`                                |
 | `--output-dir`     | `-o`      | `.evals`           | Output directory for reports                                            |
-| `--analyzer-model` | —         | `gemini-3.5-flash` | Model used for report analysis                                          |
-| `--open-analysis`  | —         | `false`            | Open the analysis report when it is written                             |
-| `--chrome-channel` | —         | `chrome-canary`    | Chrome channel (`chrome`, `chrome-beta`, `chrome-canary`, `chrome-dev`) |
+| `--analyzer-model` | -         | `gemini-3.5-flash` | Model used for report analysis                                          |
+| `--open-analysis`  | -         | `false`            | Open the analysis report when it is written                             |
+| `--chrome-channel` | -         | `chrome-canary`    | Chrome channel (`chrome`, `chrome-beta`, `chrome-canary`, `chrome-dev`) |
 
 `--reporter` accepts several values, so it would consume a command name that follows it. Put another option after it, for example `--reporter console json -m google:gemini-3.8-flash local ...`.
 
@@ -121,8 +121,8 @@ node dist/bin/webmcp-evals.js --chrome-channel chrome smoke \
 
 | Option                     | Required | Default | Description                             |
 | -------------------------- | -------- | ------- | --------------------------------------- |
-| `-u, --url <url>`          | Yes      | —       | Target page URL                         |
-| `-e, --evals <path>`       | Yes      | —       | Eval suite JSON                         |
+| `-u, --url <url>`          | Yes      | -       | Target page URL                         |
+| `-e, --evals <path>`       | Yes      | -       | Eval suite JSON                         |
 | `--timeout <milliseconds>` | No       | `30000` | Timeout per navigation or tool step     |
 | `-v, --verbose`            | No       | `false` | Print step-by-step navigation and calls |
 
@@ -138,8 +138,8 @@ The examples that ship a `schema.json` are `address-form`, `commerce/retail`, `c
 
 | Option               | Required | Default | Description                                  |
 | -------------------- | -------- | ------- | -------------------------------------------- |
-| `-t, --tools <path>` | Yes      | —       | Tool schema JSON                             |
-| `-e, --evals <path>` | Yes      | —       | Eval suite JSON                              |
+| `-t, --tools <path>` | Yes      | -       | Tool schema JSON                             |
+| `-e, --evals <path>` | Yes      | -       | Eval suite JSON                              |
 | `--analyze`          | No       | `false` | Run LLM report analysis when the run is done |
 
 ### `browser`: evals against a live page
@@ -152,8 +152,8 @@ node dist/bin/webmcp-evals.js --chrome-channel chrome -m google:gemini-3.8-flash
 
 | Option               | Required | Default | Description                                  |
 | -------------------- | -------- | ------- | -------------------------------------------- |
-| `-u, --url <url>`    | Yes      | —       | Target page URL                              |
-| `-e, --evals <path>` | Yes      | —       | Eval suite JSON                              |
+| `-u, --url <url>`    | Yes      | -       | Target page URL                              |
+| `-e, --evals <path>` | Yes      | -       | Eval suite JSON                              |
 | `--open`             | No       | `false` | Open the HTML report when it is written      |
 | `--analyze`          | No       | `false` | Run LLM report analysis when the run is done |
 
@@ -165,7 +165,7 @@ node dist/bin/webmcp-evals.js analyze .evals/report-1784621327799.json --open
 
 | Argument/Option       | Required | Default            | Description                                       |
 | --------------------- | -------- | ------------------ | ------------------------------------------------- |
-| `<report-path>`       | Yes      | —                  | JSON or HTML report (e.g. `.evals/report-*.json`) |
+| `<report-path>`       | Yes      | -                  | JSON or HTML report (e.g. `.evals/report-*.json`) |
 | `-m, --model <model>` | No       | `gemini-3.5-flash` | Model used for the analysis                       |
 | `--open`              | No       | `false`            | Open the analysis report in the browser           |
 
