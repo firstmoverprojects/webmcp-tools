@@ -36,13 +36,14 @@ fi
 get_target_url() {
   local target_path="${1}"
   local default_url="${2}"
+  local query="${3}"
 
   if [ -n "$URL" ]; then
-    echo "$URL"
+    echo "${URL%/}/${query}"
   elif [ -n "$BASE_URL" ]; then
-    echo "${BASE_URL%/}/${target_path}"
+    echo "${BASE_URL%/}/${target_path}${query}"
   else
-    echo "$default_url"
+    echo "${default_url}${query}"
   fi
 }
 
@@ -68,19 +69,19 @@ run_single_smoke() {
         $CHROME_CHANNEL_FLAG
       echo "🇫🇷 Running French Bistro Smoke Test with toolautosubmit..."
       node dist/bin/webmcp-evals.js smoke \
-        -u "$(get_target_url "french-bistro/" "https://googlechromelabs.github.io/webmcp-tools/demos/french-bistro/?toolautosubmit")" \
+        -u "$(get_target_url "french-bistro/" "https://googlechromelabs.github.io/webmcp-tools/demos/french-bistro/" "?toolautosubmit")" \
         -e examples/french-bistro/evals-toolautosubmit.json \
         $VERBOSE_FLAG \
         $CHROME_CHANNEL_FLAG
       echo "🇫🇷 Running French Bistro Smoke Test with toolautosubmit and crossdocument..."
       node dist/bin/webmcp-evals.js smoke \
-        -u "$(get_target_url "french-bistro/" "https://googlechromelabs.github.io/webmcp-tools/demos/french-bistro/?toolautosubmit&crossdocument")" \
+        -u "$(get_target_url "french-bistro/" "https://googlechromelabs.github.io/webmcp-tools/demos/french-bistro/" "?toolautosubmit&crossdocument")" \
         -e examples/french-bistro/evals-toolautosubmit-crossdocument.json \
         $VERBOSE_FLAG \
         $CHROME_CHANNEL_FLAG
       echo "🇫🇷 Running French Bistro Smoke Test with toolautosubmit, crossdocument, and imperative..."
       node dist/bin/webmcp-evals.js smoke \
-        -u "$(get_target_url "french-bistro/" "https://googlechromelabs.github.io/webmcp-tools/demos/french-bistro/?toolautosubmit&crossdocument&imperative")" \
+        -u "$(get_target_url "french-bistro/" "https://googlechromelabs.github.io/webmcp-tools/demos/french-bistro/" "?toolautosubmit&crossdocument&imperative")" \
         -e examples/french-bistro/evals-toolautosubmit-crossdocument-imperative.json \
         $VERBOSE_FLAG \
         $CHROME_CHANNEL_FLAG
